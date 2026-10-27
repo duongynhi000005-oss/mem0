@@ -205,3 +205,46 @@ def test_preprocess_filters(supabase_instance):
 
     # Test None filters
     assert supabase_instance._preprocess_filters(None) is None
+
+
+def test_supabase_config_connection_string_schemes():
+    from mem0.configs.vector_stores.supabase import SupabaseConfig
+
+    # Both postgresql:// and postgres:// are accepted
+    cfg1 = SupabaseConfig(connection_string="postgresql://user:pass@localhost:5432/db")
+    assert cfg1.connection_string.startswith("postgresql://")
+
+    cfg2 = SupabaseConfig(connection_string="postgres://user:pass@localhost:5432/db")
+    assert cfg2.connection_string.startswith("postgres://")
+
+    # Invalid scheme raises ValueError
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string must be provided"):
+        SupabaseConfig(connection_string="mysql://user:pass@localhost:5432/db")
+
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string must be provided"):
+        SupabaseConfig(connection_string="")
+
+
+def test_search_vectors_distance_score_conversion(supabase_instance, mock_collection):
+    mock_results = [("id1", 0.9, {"name": "vector1"})]
+    mock_collection.query.return_value = mock_results
+
+    # 1. Cosine: max(0.0, 1.0 - distance)
+    supabase_instance.index_measure = IndexMeasure.COSINE
+    res_cosine = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    assert res_cosine[0].score == pytest.approx(0.1)
+
+    # 2. L2 distance: 1.0 / (1.0 + distance)
+    supabase_instance.index_measure = IndexMeasure.L2
+    res_l2 = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    assert res_l2[0].score == pytest.approx(1.0 / (1.0 + 0.9))
+
+    # 3. L1 distance: 1.0 / (1.0 + distance)
+    supabase_instance.index_measure = IndexMeasure.L1
+    res_l1 = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    assert res_l1[0].score == pytest.approx(1.0 / (1.0 + 0.9))
+
+    # 4. Max inner product: distance
+    supabase_instance.index_measure = IndexMeasure.MAX_INNER_PRODUCT
+    res_ip = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    assert res_ip[0].score == pytest.approx(0.9)

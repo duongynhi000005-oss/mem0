@@ -27,7 +27,7 @@ class SupabaseConfig(BaseModel):
     @model_validator(mode="before")
     def check_connection_string(cls, values):
         conn_str = values.get("connection_string")
-        if not conn_str or not conn_str.startswith("postgresql://"):
+        if not conn_str or not (conn_str.startswith("postgresql://") or conn_str.startswith("postgres://")):
             raise ValueError("A valid PostgreSQL connection string must be provided")
         return values
 

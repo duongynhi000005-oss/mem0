@@ -117,6 +117,21 @@ class Supabase(VectorStoreBase):
 
         self.collection.upsert(records)
 
+    def _calculate_score(self, distance: float) -> float:
+        """
+        Convert vector distance to similarity score based on index_measure.
+        Follows VectorStoreBase contract:
+        - Cosine distance: score = max(0.0, 1.0 - distance)
+        - L2/L1 distance: score = 1.0 / (1.0 + distance)
+        - Max inner product: score = distance
+        """
+        if self.index_measure in (IndexMeasure.L2, IndexMeasure.L1):
+            return 1.0 / (1.0 + distance)
+        elif self.index_measure == IndexMeasure.MAX_INNER_PRODUCT:
+            return distance
+        else:
+            return max(0.0, 1.0 - distance)
+
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[dict] = None
     ) -> List[OutputData]:
@@ -145,7 +160,7 @@ class Supabase(VectorStoreBase):
         )
 
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            OutputData(id=str(result[0]), score=self._calculate_score(float(result[1])), payload=result[2])
             for result in results
         ]
 
