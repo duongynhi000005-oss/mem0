@@ -188,6 +188,7 @@ class PGVector(VectorStoreBase):
         self._collection_ensured = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
+        self._owns_connection_pool = connection_pool is None
         if connection_pool is not None:
             # Use provided connection pool
             self.connection_pool = connection_pool
@@ -542,18 +543,24 @@ class PGVector(VectorStoreBase):
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[1]) for r in results]]
 
+    def close(self) -> None:
+        """Close the database connection pool if owned by this instance."""
+        if getattr(self, "_owns_connection_pool", True) and hasattr(self, "connection_pool") and self.connection_pool is not None:
+            try:
+                if PSYCOPG_VERSION == 3:
+                    self.connection_pool.close()
+                else:
+                    self.connection_pool.closeall()
+            except Exception:
+                pass
+            finally:
+                self.connection_pool = None
+
     def __del__(self) -> None:
         """
         Close the database connection pool when the object is deleted.
         """
-        try:
-            # Close pool appropriately
-            if PSYCOPG_VERSION == 3:
-                self.connection_pool.close()
-            else:
-                self.connection_pool.closeall()
-        except Exception:
-            pass
+        self.close()
 
     def reset(self) -> None:
         """Reset the index by deleting and recreating it."""

@@ -2178,6 +2178,13 @@ class Memory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        for store in [
+            getattr(self, "vector_store", None),
+            getattr(self, "_telemetry_vector_store", None),
+            getattr(self, "_entity_store", None),
+        ]:
+            if store is not None and hasattr(store, "close"):
+                store.close()
 
     def __enter__(self):
         return self
@@ -3900,6 +3907,13 @@ class AsyncMemory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        for store in [
+            getattr(self, "vector_store", None),
+            getattr(self, "_telemetry_vector_store", None),
+            getattr(self, "_entity_store", None),
+        ]:
+            if store is not None and hasattr(store, "close"):
+                store.close()
 
     async def __aenter__(self):
         return self

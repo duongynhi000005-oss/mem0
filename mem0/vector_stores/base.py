@@ -65,6 +65,10 @@ class VectorStoreBase(ABC):
         """Reset by delete the collection and recreate it."""
         pass
 
+    def close(self) -> None:
+        """Optional teardown hook to release network connections and pools."""
+        pass
+
     def keyword_search(self, query: str, top_k: int = 5, filters: dict = None):
         """Keyword/BM25 full-text search. Returns None if not supported by this store.
 
